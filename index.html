@@ -1,343 +1,293 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { User, Shield, Zap, Dice5, Settings, ArrowRight, Info, Users } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Circle - Peer-to-Peer Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        body { font-family: 'Montserrat', sans-serif; background: #020617; color: #f1f5f9; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .btn-primary { background: #2563eb; transition: all 0.2s; }
+        .btn-primary:hover { background: #3b82f6; transform: translateY(-2px); }
+        .btn-primary:active { transform: translateY(0); }
+        input { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
 
-// Firebase Config (Wird von der Umgebung bereitgestellt)
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'circle-game-v2';
-
-// Spieldaten aus den PDFs
-const SCENES = [
-  { id: 1, title: "Die Einladung", text: "Leo lädt dich in eine exklusive Gruppe ein. Du sollst ein Video teilen, das den Circle feiert. Tust du es?" },
-  { id: 2, title: "Isolation", text: "Die Gruppe verlangt, dass du deine Freunde ignorierst, die 'negativ' über den Circle reden. Brichst du den Kontakt ab?" },
-  { id: 3, title: "Die Drohung", text: "Leo sagt: 'Wer jetzt aussteigt, verliert seine Chance auf Erfolg für immer.' Bleibst du dabei?" },
-  { id: 4, title: "Die Demütigung", text: "In einem Meeting wirst du vor allen bloßgestellt. Gibst du zu, dass du 'noch nicht bereit' warst?" },
-  { id: 5, title: "Loyalität", text: "Leo sagt: 'Wir haben so viel Zeit in dich investiert. Du schuldest uns Loyalität.' Gibst du nach?" },
-  { id: 6, title: "Der Kontostand", text: "Alle posten einen Screenshot ihrer Kontostände. Du zögerst. Postest du trotzdem?" }
-];
-
-const TACTICS = {
-  "EXKLUSIVITÄT": { win: { f: -1, s: 0 }, lose: { f: 0, s: 1 }, desc: "Erfolg: -1 F | Fehlschlag: +1 MB" },
-  "VERSCHWÖRUNG": { win: { f: -1, s: 0 }, lose: { f: 0, s: 1 }, desc: "Erfolg: -1 F | Fehlschlag: +1 MB" },
-  "ANGST": { win: { f: -1, s: 0 }, lose: { f: 0, s: 2 }, desc: "Erfolg: -1 F | Fehlschlag: +2 MB" },
-  "ERNIEDRIGUNG": { win: { f: -1, s: -1 }, lose: { f: 0, s: 3 }, desc: "Erfolg: -1 F, -1 MB | Fehlschlag: +3 MB" },
-  "SCHULDGEFÜHLE": { win: { f: -1, s: -1 }, lose: { f: 0, s: 2 }, desc: "Erfolg: -1 F, -1 MB | Fehlschlag: +2 MB" },
-  "GRUPPENZWANG": { win: { f: -1, s: 0 }, lose: { f: 0, s: 1 }, desc: "Erfolg: -1 F | Fehlschlag: +1 MB" }
-};
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [game, setGame] = useState(null);
-  const [gameId, setGameId] = useState(null);
-  const [isLobby, setIsLobby] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [lastRoll, setLastRoll] = useState(null);
-
-  // --- Auth & Sync ---
-  useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInAnonymously(auth);
-      } else {
-        await signInAnonymously(auth);
-      }
-    };
-    initAuth();
-    const unsub = onAuthStateChanged(auth, setUser);
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !gameId) return;
-    const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', gameId), (snap) => {
-      if (snap.exists()) {
-        setGame(snap.data());
-        setIsLobby(false);
-      }
-    }, (err) => console.error("Snapshot Error:", err));
-    return () => unsub();
-  }, [user, gameId]);
-
-  // --- Matchmaking ---
-  const joinGame = async () => {
-    if (!user) return;
-    setLoading(true);
-    
-    // Suche nach offenem Spiel
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data'), where('status', '==', 'WAITING'));
-    const snap = await getDocs(q);
-    
-    if (!snap.empty) {
-      const existingGame = snap.docs[0];
-      const gid = existingGame.id;
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', gid), {
-        player2: user.uid,
-        status: 'ACTIVE',
-        [`roles.${user.uid}`]: 'leader' // Zweiter Spieler ist meist Leo
-      });
-      setGameId(gid);
-    } else {
-      const gid = `game_${Date.now()}`;
-      const newGame = {
-        id: gid,
-        player1: user.uid,
-        player2: null,
-        status: 'WAITING',
-        roles: { [user.uid]: 'member' },
-        state: { freedom: 5, stress: 0, scene: 0, turn: 'member', lastAction: 'Initialisierung' },
-        logs: ["Warten auf zweiten Spieler..."]
-      };
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', gid), newGame);
-      setGameId(gid);
-    }
-    setLoading(false);
-  };
-
-  // --- Game Actions ---
-  const performMove = async (type, detail = null) => {
-    if (!game || game.state.turn !== game.roles[user.uid]) return;
-
-    const s = { ...game.state };
-    const logs = [...game.logs];
-    const roll = Math.floor(Math.random() * 20) + 1;
-    setLastRoll(roll);
-
-    let target = 11;
-    if (s.turn === 'member') {
-      target = 11 + (5 - s.freedom) * 2 + (s.stress >= 3 ? (s.stress - 2) : 0);
-    } else {
-      target = 11 + (s.stress >= 3 ? -(s.stress - 2) : 0) + (s.freedom > 3 ? (s.freedom - 3) : 0);
-    }
-    target = Math.max(2, Math.min(20, target));
-
-    if (type === 'obey') {
-      s.freedom--;
-      s.scene++;
-      s.turn = 'member';
-      logs.push("GM hat gehorcht (-1 Freiheit).");
-    } else if (type === 'resist') {
-      if (roll >= target) {
-        logs.push(`Widerstand ERFOLGREICH (${roll} gewürfelt). Leo ist am Zug.`);
-        s.turn = 'leader';
-      } else {
-        logs.push(`Widerstand GESCHEITERT (${roll} gewürfelt). +1 MB, -1 F.`);
-        s.freedom--;
-        s.stress++;
-        s.scene++;
-        s.turn = 'member';
-      }
-    } else if (type === 'tactic') {
-      const t = TACTICS[detail];
-      if (roll >= target) {
-        logs.push(`Leos ${detail} war erfolgreich (${roll}).`);
-        s.freedom += t.win.f;
-        s.stress += t.win.s;
-      } else {
-        logs.push(`Leos ${detail} ist gescheitert (${roll}).`);
-        s.freedom += t.lose.f;
-        s.stress += t.lose.s;
-      }
-      s.scene++;
-      s.turn = 'member';
-    }
-
-    s.freedom = Math.max(0, s.freedom);
-    s.stress = Math.max(0, Math.min(10, s.stress));
-
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', gameId), {
-      state: s,
-      logs: logs.slice(-10) // Behalte nur letzte 10 Logs
-    });
-  };
-
-  if (isLobby) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-slate-900 border border-white/10 p-8 rounded-[2rem] text-center space-y-8 shadow-2xl">
-          <div className="w-20 h-20 bg-blue-600 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Users size={40} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-black italic tracking-tighter">THE CIRCLE</h1>
-            <p className="text-slate-400 mt-2 text-sm">Multiplayer Experiment</p>
-          </div>
-          
-          <button 
-            onClick={joinGame}
-            disabled={loading}
-            className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-400 transition-all disabled:opacity-50"
-          >
-            {loading ? 'Suche Spieler...' : 'Spiel Beitreten'}
-          </button>
-
-          {gameId && game?.status === 'WAITING' && (
-            <div className="animate-pulse text-blue-400 text-xs font-bold uppercase">
-              Warte auf Partner...
-            </div>
-          )}
-          
-          <p className="text-[10px] text-slate-600 uppercase">Anonyme Authentifizierung aktiv. Keine Daten-Speicherung.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const myRole = game.roles[user.uid];
-  const isMyTurn = game.state.turn === myRole;
-  const currentScene = SCENES[game.state.scene];
-
-  if (!currentScene || game.state.freedom <= 0 || game.state.stress >= 10) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-        <div className="bg-slate-900 p-10 rounded-3xl border border-white/10 text-center space-y-6 max-w-lg">
-          <h2 className="text-3xl font-black text-red-500 uppercase italic">Experiment Beendet</h2>
-          <p className="text-slate-400">
-            {game.state.freedom <= 0 ? "Das Mitglied hat keine Freiheit mehr." : "Der psychische Druck war zu groß."}
-          </p>
-          <button onClick={() => window.location.reload()} className="bg-white text-black px-8 py-3 rounded-xl font-bold">NEU STARTEN</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-['Montserrat']">
-      <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
-        
-        {/* Header Section */}
-        <div className="col-span-12 flex justify-between items-center bg-slate-900/50 p-6 rounded-[2rem] border border-white/5">
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-2xl ${myRole === 'leader' ? 'bg-blue-600' : 'bg-green-600'}`}>
-              <User size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deine Rolle</p>
-              <h2 className="font-black text-xl italic">{myRole === 'leader' ? 'ANFÜHRER (LEO)' : 'MITGLIED'}</h2>
-            </div>
-          </div>
-          <div className="text-center px-6 border-x border-white/10">
-            <p className="text-[10px] font-bold text-slate-500 uppercase">Szene</p>
-            <p className="text-2xl font-black">{game.state.scene + 1} <span className="text-sm text-slate-600">/ 6</span></p>
-          </div>
-          <div className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest ${isMyTurn ? 'bg-blue-500 text-white animate-pulse' : 'bg-slate-800 text-slate-500'}`}>
-            {isMyTurn ? 'Dein Zug' : 'Warte auf Partner'}
-          </div>
-        </div>
-
-        {/* Main Narrative */}
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-white/10 shadow-xl relative overflow-hidden min-h-[250px] flex flex-col justify-center">
-            <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
-            <h3 className="text-blue-400 font-black uppercase text-xs tracking-widest mb-4">{currentScene.title}</h3>
-            <p className="text-2xl font-medium leading-relaxed italic">"{currentScene.text}"</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            <StatCard label="Freiheit" value={game.state.freedom} max={5} color="bg-green-500" />
-            <StatCard label="Belastung" value={game.state.stress} max={10} color="bg-red-500" />
-          </div>
-
-          <div className="bg-black/40 p-6 rounded-[2rem] h-40 overflow-y-auto border border-white/5 text-[10px] font-mono space-y-1">
-            {game.logs.slice().reverse().map((log, i) => (
-              <div key={i} className={i === 0 ? "text-blue-400" : "text-slate-600"}>{`> ${log}`}</div>
-            ))}
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="col-span-12 lg:col-span-4 bg-slate-900 p-8 rounded-[2.5rem] border border-white/10 flex flex-col justify-between">
-          <div className="text-center space-y-6">
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] font-bold text-slate-500 uppercase mb-2">Ziel-Wurf</span>
-              <div className="text-6xl font-black text-white font-mono">
-                {calculateTarget(game.state, game.state.turn) || '--'}+
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-4">
-               <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black ${lastRoll ? 'bg-white text-slate-900 shadow-2xl scale-110' : 'bg-slate-800 text-slate-600'}`}>
-                  {lastRoll || '?'}
-               </div>
-               <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Würfelergebnis</p>
-            </div>
-          </div>
-
-          <div className="mt-8 space-y-3">
-            {!isMyTurn ? (
-              <div className="text-center p-6 bg-slate-800/50 rounded-2xl border border-dashed border-white/10 italic text-slate-500 text-sm">
-                Warte auf die Aktion deines Gegenspielers...
-              </div>
-            ) : (
-              myRole === 'member' ? (
-                <>
-                  <ActionButton onClick={() => performMove('obey')} label="Gehorchen" sub="-1 Freiheit" />
-                  <ActionButton onClick={() => performMove('resist')} label="Widerstehen" sub="W20 Wurf nötig" primary />
-                </>
-              ) : (
-                <div className="grid grid-cols-1 gap-2">
-                  <p className="text-[10px] text-center text-blue-400 font-bold uppercase mb-2">Wähle Taktik</p>
-                  {Object.keys(TACTICS).map(t => (
-                    <button 
-                      key={t}
-                      onClick={() => performMove('tactic', t)}
-                      className="text-left p-3 rounded-xl bg-slate-800 hover:bg-blue-900 border border-white/5 transition-all group"
-                    >
-                      <span className="block text-[10px] font-black group-hover:text-blue-400">{t}</span>
-                      <span className="text-[8px] text-slate-500">{TACTICS[t].desc}</span>
-                    </button>
-                  ))}
+    <div id="app" class="max-w-4xl w-full">
+        <!-- SETUP SCREEN -->
+        <div id="setup-screen" class="glass p-8 md:p-12 rounded-[2.5rem] text-center space-y-8 shadow-2xl border-blue-500/20">
+            <h1 class="text-5xl font-black italic tracking-tighter">THE <span class="text-blue-500">CIRCLE</span></h1>
+            <p class="text-slate-400">Direkte Verbindung ohne Server. Wähle deine Rolle.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Host Side -->
+                <div class="p-6 bg-slate-800/50 rounded-2xl border border-white/5 space-y-4">
+                    <h3 class="font-bold uppercase text-xs text-blue-400">Host (Anführer/Leo)</h3>
+                    <button id="btn-host" class="w-full btn-primary py-3 rounded-xl font-black uppercase text-sm">Spiel erstellen</button>
+                    <div id="host-code-area" class="hidden space-y-2">
+                        <p class="text-[10px] text-slate-500 uppercase">Sende diesen Code an das Mitglied:</p>
+                        <div class="flex gap-2">
+                            <input id="my-id" readonly class="text-xs flex-1 text-center font-mono">
+                            <button onclick="copyId()" class="bg-slate-700 px-3 rounded-lg text-xs hover:bg-slate-600">Kopieren</button>
+                        </div>
+                        <p id="wait-msg" class="text-[10px] text-blue-400 animate-pulse">Warte auf Verbindung...</p>
+                    </div>
                 </div>
-              )
-            )}
-          </div>
+
+                <!-- Join Side -->
+                <div class="p-6 bg-slate-800/50 rounded-2xl border border-white/5 space-y-4">
+                    <h3 class="font-bold uppercase text-xs text-green-400">Gast (Mitglied)</h3>
+                    <input id="join-id" placeholder="Code hier einfügen" class="w-full text-center">
+                    <button id="btn-join" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-xl font-black uppercase text-sm transition-all">Verbinden</button>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-600 uppercase tracking-widest">Technik: WebRTC Peer-to-Peer. Keine Daten auf Servern.</p>
         </div>
-      </div>
+
+        <!-- GAME SCREEN -->
+        <div id="game-screen" class="hidden space-y-6">
+            <div class="glass p-4 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div id="role-icon" class="w-10 h-10 rounded-lg flex items-center justify-center font-black">?</div>
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-bold uppercase" id="player-role-text">Rolle</div>
+                        <div class="text-sm font-bold" id="player-name-text">Spieler</div>
+                    </div>
+                </div>
+                <div class="text-center px-4 border-x border-white/10">
+                    <div class="text-[10px] text-slate-500 font-bold uppercase">Szene</div>
+                    <div class="font-black" id="scene-counter">1 / 6</div>
+                </div>
+                <div id="turn-badge" class="px-4 py-1 rounded-full text-[10px] font-black uppercase">Warte...</div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 space-y-6">
+                    <div class="glass p-8 rounded-[2rem] border-l-4 border-blue-500 min-h-[180px] flex items-center">
+                        <p id="narrative-text" class="text-xl italic font-medium leading-relaxed"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass p-4 rounded-xl">
+                            <div class="flex justify-between text-[10px] font-bold uppercase mb-2"><span class="text-green-400">Freiheit</span><span id="freedom-val">5/5</span></div>
+                            <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="freedom-bar" class="h-full bg-green-500 transition-all duration-500"></div></div>
+                        </div>
+                        <div class="glass p-4 rounded-xl">
+                            <div class="flex justify-between text-[10px] font-bold uppercase mb-2"><span class="text-red-500">Belastung</span><span id="stress-val">0/10</span></div>
+                            <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="stress-bar" class="h-full bg-red-500 transition-all duration-500"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-[2rem] flex flex-col justify-between text-center min-h-[300px]">
+                    <div class="space-y-4">
+                        <div>
+                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Zielwert</div>
+                            <div id="target-val" class="text-5xl font-black">11+</div>
+                        </div>
+                        <div id="dice-visual" class="w-16 h-16 bg-white text-slate-900 rounded-xl mx-auto flex items-center justify-center text-2xl font-black shadow-xl">?</div>
+                    </div>
+
+                    <div id="action-area" class="mt-6 space-y-2">
+                        <!-- Buttons werden dynamisch eingefügt -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  );
-}
 
-// Helpers
-function calculateTarget(state, role) {
-  if (role === 'member') {
-    return 11 + (5 - state.freedom) * 2 + (state.stress >= 3 ? (state.stress - 2) : 0);
-  } else {
-    let mod = 0;
-    if (state.stress >= 3) mod -= (state.stress - 2);
-    if (state.freedom > 3) mod += (state.freedom - 3);
-    return 11 + mod;
-  }
-}
+    <script>
+        // --- SPIELKONFIGURATION ---
+        const SCENES = [
+            { t: "Die Einladung", d: "Leo lädt dich in eine exklusive Gruppe ein. Du sollst ein Video teilen, das den Circle feiert. Tust du es?" },
+            { t: "Isolation", d: "Die Gruppe verlangt, dass du deine Freunde ignorierst, die 'negativ' über den Circle reden. Brichst du den Kontakt ab?" },
+            { t: "Die Drohung", d: "Leo sagt: 'Wer jetzt aussteigt, verliert seine Chance auf Erfolg für immer.' Bleibst du dabei?" },
+            { t: "Die Demütigung", d: "In einem Meeting wirst du vor allen bloßgestellt. Gibst du zu, dass du 'noch nicht bereit' warst?" },
+            { t: "Loyalität", d: "Leo sagt: 'Wir haben so viel Zeit in dich investiert. Du schuldest uns Loyalität.' Gibst du nach?" },
+            { t: "Der Kontostand", d: "Alle posten einen Screenshot ihrer Kontostände. Du zögerst. Postest du trotzdem?" }
+        ];
 
-function StatCard({ label, value, max, color }) {
-  return (
-    <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-white/10">
-      <div className="flex justify-between items-end mb-4">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
-        <span className="text-2xl font-black">{value} <span className="text-sm text-slate-700">/ {max}</span></span>
-      </div>
-      <div className="h-3 w-full bg-black/40 rounded-full overflow-hidden flex gap-1 p-1">
-        {Array.from({ length: max }).map((_, i) => (
-          <div key={i} className={`flex-1 rounded-full transition-all ${i < value ? color : 'bg-slate-800'}`} />
-        ))}
-      </div>
-    </div>
-  );
-}
+        const TACTICS = {
+            "EXKLUSIVITÄT": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } },
+            "VERSCHWÖRUNG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } },
+            "ANGST": { w: { f: -1, s: 0 }, l: { f: 0, s: 2 } },
+            "ERNIEDRIGUNG": { w: { f: -1, s: -1 }, l: { f: 0, s: 3 } },
+            "SCHULDGEFÜHLE": { w: { f: -1, s: -1 }, l: { f: 0, s: 2 } },
+            "GRUPPENZWANG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } }
+        };
 
-function ActionButton({ onClick, label, sub, primary }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`w-full p-4 rounded-2xl flex flex-col items-center transition-all active:scale-95 border ${primary ? 'bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 border-white/5 text-slate-300'}`}
-    >
-      <span className="font-black uppercase tracking-widest text-sm">{label}</span>
-      <span className={`text-[10px] mt-1 ${primary ? 'text-blue-200' : 'text-slate-500'}`}>{sub}</span>
-    </button>
-  );
-}
+        // --- P2P LOGIK ---
+        let peer, conn;
+        let myRole = ''; // 'leader' oder 'member'
+        let state = {
+            freedom: 5,
+            stress: 0,
+            scene: 0,
+            turn: 'member' // Wer ist gerade dran?
+        };
+
+        const btnHost = document.getElementById('btn-host');
+        const btnJoin = document.getElementById('btn-join');
+
+        btnHost.onclick = () => {
+            myRole = 'leader';
+            peer = new Peer();
+            peer.on('open', (id) => {
+                document.getElementById('my-id').value = id;
+                document.getElementById('host-code-area').classList.remove('hidden');
+                btnHost.classList.add('hidden');
+            });
+            peer.on('connection', (c) => {
+                conn = c;
+                setupConnection();
+            });
+        };
+
+        btnJoin.onclick = () => {
+            myRole = 'member';
+            const id = document.getElementById('join-id').value;
+            if (!id) return;
+            peer = new Peer();
+            peer.on('open', () => {
+                conn = peer.connect(id);
+                setupConnection();
+            });
+        };
+
+        function setupConnection() {
+            conn.on('open', () => {
+                document.getElementById('setup-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                if (myRole === 'leader') sendState(); // Host gibt den Start-State vor
+                updateUI();
+            });
+            conn.on('data', (data) => {
+                state = data;
+                updateUI();
+            });
+        }
+
+        function sendState() {
+            if (conn && conn.open) conn.send(state);
+        }
+
+        function copyId() {
+            const el = document.getElementById('my-id');
+            el.select();
+            document.execCommand('copy');
+        }
+
+        // --- GAME LOGIK ---
+        function updateUI() {
+            const scene = SCENES[state.scene];
+            if (!scene || state.freedom <= 0 || state.stress >= 10) {
+                renderEnd();
+                return;
+            }
+
+            document.getElementById('narrative-text').innerText = `"${scene.d}"`;
+            document.getElementById('scene-counter').innerText = `${state.scene + 1} / 6`;
+            document.getElementById('freedom-val').innerText = `${state.freedom} / 5`;
+            document.getElementById('stress-val').innerText = `${state.stress} / 10`;
+            document.getElementById('freedom-bar').style.width = `${(state.freedom / 5) * 100}%`;
+            document.getElementById('stress-bar').style.width = `${(state.stress / 10) * 100}%`;
+
+            const isMyTurn = state.turn === myRole;
+            const badge = document.getElementById('turn-badge');
+            badge.innerText = isMyTurn ? "Dein Zug" : "Warte...";
+            badge.className = isMyTurn ? "px-4 py-1 rounded-full text-[10px] font-black uppercase bg-blue-500 text-white animate-pulse" : "px-4 py-1 rounded-full text-[10px] font-black uppercase bg-slate-800 text-slate-500";
+
+            const roleIcon = document.getElementById('role-icon');
+            roleIcon.innerText = myRole === 'leader' ? 'L' : 'M';
+            roleIcon.className = `w-10 h-10 rounded-lg flex items-center justify-center font-black ${myRole === 'leader' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}`;
+            document.getElementById('player-role-text').innerText = myRole === 'leader' ? 'Anführer' : 'Mitglied';
+            document.getElementById('player-name-text').innerText = myRole === 'leader' ? 'Leo' : 'Anfänger';
+
+            // Target
+            let target = 11;
+            if (state.turn === 'member') {
+                target = 11 + (5 - state.freedom) * 2 + (state.stress >= 3 ? (state.stress - 2) : 0);
+            } else {
+                target = 11 + (state.stress >= 3 ? -(state.stress - 2) : 0) + (state.freedom > 3 ? (state.freedom - 3) : 0);
+            }
+            target = Math.max(2, Math.min(20, target));
+            document.getElementById('target-val').innerText = target + "+";
+
+            // Buttons
+            const area = document.getElementById('action-area');
+            area.innerHTML = '';
+            if (isMyTurn) {
+                if (myRole === 'member') {
+                    area.innerHTML = `
+                        <button onclick="handleMove('obey')" class="w-full bg-slate-700 p-3 rounded-xl text-xs font-bold uppercase">Gehorchen</button>
+                        <button onclick="handleMove('resist')" class="w-full bg-blue-600 p-3 rounded-xl text-xs font-bold uppercase">Widerstehen</button>
+                    `;
+                } else {
+                    Object.keys(TACTICS).forEach(t => {
+                        area.innerHTML += `<button onclick="handleMove('tactic', '${t}')" class="w-full bg-slate-800 p-2 rounded-lg text-[9px] font-bold border border-white/5 uppercase">${t}</button>`;
+                    });
+                }
+            }
+        }
+
+        function handleMove(type, detail) {
+            const roll = Math.floor(Math.random() * 20) + 1;
+            document.getElementById('dice-visual').innerText = roll;
+            document.getElementById('dice-visual').classList.add('animate-bounce');
+
+            let target = parseInt(document.getElementById('target-val').innerText);
+
+            setTimeout(() => {
+                document.getElementById('dice-visual').classList.remove('animate-bounce');
+                
+                if (type === 'obey') {
+                    state.freedom--;
+                    state.scene++;
+                    state.turn = 'member';
+                } else if (type === 'resist') {
+                    if (roll >= target) {
+                        state.turn = 'leader'; // Leo muss kontern
+                    } else {
+                        state.freedom--;
+                        state.stress++;
+                        state.scene++;
+                        state.turn = 'member';
+                    }
+                } else if (type === 'tactic') {
+                    const t = TACTICS[detail];
+                    if (roll >= target) {
+                        state.freedom += t.w.f;
+                        state.stress += t.w.s;
+                    } else {
+                        state.freedom += t.l.f;
+                        state.stress += t.l.s;
+                    }
+                    state.scene++;
+                    state.turn = 'member';
+                }
+
+                state.freedom = Math.max(0, state.freedom);
+                state.stress = Math.min(10, Math.max(0, state.stress));
+                
+                sendState();
+                updateUI();
+            }, 600);
+        }
+
+        function renderEnd() {
+            document.getElementById('game-screen').innerHTML = `
+                <div class="glass p-12 rounded-[3rem] text-center space-y-6">
+                    <h2 class="text-4xl font-black italic text-blue-500 uppercase">Spiel Beendet</h2>
+                    <p class="text-slate-400">Das Experiment ist abgeschlossen. Ergebnis synchronisiert.</p>
+                    <button onclick="location.reload()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold uppercase">Neustart</button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
 
