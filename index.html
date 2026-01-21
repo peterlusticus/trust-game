@@ -3,97 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Circle - Peer-to-Peer Online</title>
+    <title>The Circle - Das Online-Experiment</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
-        body { font-family: 'Montserrat', sans-serif; background: #020617; color: #f1f5f9; }
-        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .btn-primary { background: #2563eb; transition: all 0.2s; }
-        .btn-primary:hover { background: #3b82f6; transform: translateY(-2px); }
-        .btn-primary:active { transform: translateY(0); }
-        input { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 10px; border-radius: 8px; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Syncopate:wght@400;700&display=swap');
+        
+        :root {
+            --primary: #3b82f6;
+            --accent: #ef4444;
+            --bg: #030712;
+        }
+
+        body { 
+            font-family: 'Space Grotesk', sans-serif; 
+            background: var(--bg); 
+            color: #f1f5f9; 
+            overflow-x: hidden;
+        }
+
+        .heading { font-family: 'Syncopate', sans-serif; }
+
+        .glass { 
+            background: rgba(17, 24, 39, 0.7); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .die-animation {
+            animation: shake 0.1s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(0,0) rotate(0deg); }
+            25% { transform: translate(2px, 2px) rotate(5deg); }
+            50% { transform: translate(-2px, 1px) rotate(-5deg); }
+            75% { transform: translate(1px, -1px) rotate(2deg); }
+            100% { transform: translate(0,0) rotate(0deg); }
+        }
+
+        .card-enter {
+            animation: slideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .progress-glow {
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <div id="app" class="max-w-4xl w-full">
+    <div id="app" class="max-w-5xl w-full relative">
+        
         <!-- SETUP SCREEN -->
-        <div id="setup-screen" class="glass p-8 md:p-12 rounded-[2.5rem] text-center space-y-8 shadow-2xl border-blue-500/20">
-            <h1 class="text-5xl font-black italic tracking-tighter">THE <span class="text-blue-500">CIRCLE</span></h1>
-            <p class="text-slate-400">Direkte Verbindung ohne Server. Wähle deine Rolle.</p>
+        <div id="setup-screen" class="glass p-8 md:p-16 rounded-[3rem] text-center space-y-10 border-blue-500/20 card-enter">
+            <div class="space-y-2">
+                <h1 class="heading text-5xl md:text-7xl font-bold tracking-tighter text-white uppercase italic">
+                    The <span class="text-blue-500">Circle</span>
+                </h1>
+                <p class="text-slate-500 tracking-widest uppercase text-xs">Psychologische Manipulation & Widerstand</p>
+            </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Host Side -->
-                <div class="p-6 bg-slate-800/50 rounded-2xl border border-white/5 space-y-4">
-                    <h3 class="font-bold uppercase text-xs text-blue-400">Host (Anführer/Leo)</h3>
-                    <button id="btn-host" class="w-full btn-primary py-3 rounded-xl font-black uppercase text-sm">Spiel erstellen</button>
-                    <div id="host-code-area" class="hidden space-y-2">
-                        <p class="text-[10px] text-slate-500 uppercase">Sende diesen Code an das Mitglied:</p>
-                        <div class="flex gap-2">
-                            <input id="my-id" readonly class="text-xs flex-1 text-center font-mono">
-                            <button onclick="copyId()" class="bg-slate-700 px-3 rounded-lg text-xs hover:bg-slate-600">Kopieren</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="p-8 bg-slate-900/50 rounded-3xl border border-white/5 space-y-6 hover:border-blue-500/30 transition-all group">
+                    <div class="w-12 h-12 bg-blue-500 rounded-full mx-auto flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">A</div>
+                    <h3 class="font-bold uppercase text-sm tracking-widest">Anführer (Leo)</h3>
+                    <button id="btn-host" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all">Spiel erstellen</button>
+                    <div id="host-code-area" class="hidden space-y-4 animate-pulse">
+                        <div class="flex items-center gap-2 bg-black/40 p-2 rounded-xl">
+                            <input id="my-id" readonly class="bg-transparent text-xs flex-1 text-center font-mono outline-none">
+                            <button onclick="copyId()" class="bg-blue-500 p-2 rounded-lg text-[10px] font-bold">COPY</button>
                         </div>
-                        <p id="wait-msg" class="text-[10px] text-blue-400 animate-pulse">Warte auf Verbindung...</p>
+                        <p class="text-[10px] text-blue-400 uppercase tracking-widest">Warte auf das Mitglied...</p>
                     </div>
                 </div>
 
-                <!-- Join Side -->
-                <div class="p-6 bg-slate-800/50 rounded-2xl border border-white/5 space-y-4">
-                    <h3 class="font-bold uppercase text-xs text-green-400">Gast (Mitglied)</h3>
-                    <input id="join-id" placeholder="Code hier einfügen" class="w-full text-center">
-                    <button id="btn-join" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-xl font-black uppercase text-sm transition-all">Verbinden</button>
+                <div class="p-8 bg-slate-900/50 rounded-3xl border border-white/5 space-y-6 hover:border-green-500/30 transition-all">
+                    <div class="w-12 h-12 bg-green-500 rounded-full mx-auto flex items-center justify-center text-white font-black shadow-lg shadow-green-500/20">M</div>
+                    <h3 class="font-bold uppercase text-sm tracking-widest">Mitglied</h3>
+                    <input id="join-id" placeholder="EINLADUNGSCODE" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-center text-sm font-mono focus:border-green-500 outline-none">
+                    <button id="btn-join" class="w-full bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all">Beitreten</button>
                 </div>
             </div>
-            <p class="text-[9px] text-slate-600 uppercase tracking-widest">Technik: WebRTC Peer-to-Peer. Keine Daten auf Servern.</p>
         </div>
 
         <!-- GAME SCREEN -->
-        <div id="game-screen" class="hidden space-y-6">
-            <div class="glass p-4 rounded-2xl flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <div id="role-icon" class="w-10 h-10 rounded-lg flex items-center justify-center font-black">?</div>
+        <div id="game-screen" class="hidden space-y-6 card-enter">
+            <!-- Top Bar -->
+            <div class="glass p-5 rounded-3xl flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <div id="role-badge" class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black shadow-inner">?</div>
                     <div>
-                        <div class="text-[10px] text-slate-500 font-bold uppercase" id="player-role-text">Rolle</div>
-                        <div class="text-sm font-bold" id="player-name-text">Spieler</div>
+                        <div class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Systemstatus</div>
+                        <div class="text-sm font-bold tracking-tight" id="player-label">Initialisiere...</div>
                     </div>
                 </div>
-                <div class="text-center px-4 border-x border-white/10">
-                    <div class="text-[10px] text-slate-500 font-bold uppercase">Szene</div>
-                    <div class="font-black" id="scene-counter">1 / 6</div>
+                <div class="flex gap-8 items-center">
+                    <div class="text-center">
+                        <div class="text-[9px] text-slate-500 font-bold uppercase">Szenenfortschritt</div>
+                        <div class="font-black text-blue-400" id="scene-label">01 / 06</div>
+                    </div>
+                    <div id="turn-indicator" class="px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all">
+                        Warte...
+                    </div>
                 </div>
-                <div id="turn-badge" class="px-4 py-1 rounded-full text-[10px] font-black uppercase">Warte...</div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="md:col-span-2 space-y-6">
-                    <div class="glass p-8 rounded-[2rem] border-l-4 border-blue-500 min-h-[180px] flex items-center">
-                        <p id="narrative-text" class="text-xl italic font-medium leading-relaxed"></p>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Main Content -->
+                <div class="lg:col-span-8 space-y-6">
+                    <!-- Scenario Card -->
+                    <div class="glass p-10 rounded-[3rem] border-l-8 border-blue-500 min-h-[220px] flex flex-col justify-center relative overflow-hidden">
+                        <div id="feedback-overlay" class="absolute inset-0 bg-blue-600/90 flex items-center justify-center text-center p-6 opacity-0 pointer-events-none transition-opacity duration-300 z-10">
+                            <h3 id="feedback-text" class="text-2xl font-black uppercase italic tracking-tighter">Aktion bestätigt</h3>
+                        </div>
+                        <h4 class="text-blue-500 font-black uppercase text-[10px] tracking-[0.3em] mb-4" id="scene-title">Kapitel 1</h4>
+                        <p id="narrative-body" class="text-xl md:text-2xl font-medium leading-relaxed italic text-slate-100"></p>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="glass p-4 rounded-xl">
-                            <div class="flex justify-between text-[10px] font-bold uppercase mb-2"><span class="text-green-400">Freiheit</span><span id="freedom-val">5/5</span></div>
-                            <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="freedom-bar" class="h-full bg-green-500 transition-all duration-500"></div></div>
+
+                    <!-- Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="glass p-6 rounded-[2rem] relative overflow-hidden group">
+                            <div class="flex justify-between items-end mb-4">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-green-400">Freiheitsgrade</span>
+                                <span class="text-2xl font-black" id="val-f">5/5</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div id="bar-f" class="h-full bg-green-500 progress-glow transition-all duration-700 w-full"></div>
+                            </div>
                         </div>
-                        <div class="glass p-4 rounded-xl">
-                            <div class="flex justify-between text-[10px] font-bold uppercase mb-2"><span class="text-red-500">Belastung</span><span id="stress-val">0/10</span></div>
-                            <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="stress-bar" class="h-full bg-red-500 transition-all duration-500"></div></div>
+                        <div class="glass p-6 rounded-[2rem] relative overflow-hidden group">
+                            <div class="flex justify-between items-end mb-4">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-red-500">Mentale Belastung</span>
+                                <span class="text-2xl font-black" id="val-s">0/10</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div id="bar-s" class="h-full bg-red-500 progress-glow transition-all duration-700 w-0"></div>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Protection Cards Display -->
+                    <div id="protection-container" class="flex flex-wrap gap-2">
+                        <!-- Wird dynamisch befüllt -->
                     </div>
                 </div>
 
-                <div class="glass p-6 rounded-[2rem] flex flex-col justify-between text-center min-h-[300px]">
-                    <div class="space-y-4">
+                <!-- Control Panel -->
+                <div class="lg:col-span-4 glass p-8 rounded-[3rem] flex flex-col justify-between items-center text-center shadow-inner relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
+                    
+                    <div class="space-y-8 w-full">
                         <div>
-                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Zielwert</div>
-                            <div id="target-val" class="text-5xl font-black">11+</div>
+                            <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Benötigter Wurf</div>
+                            <div id="target-number" class="text-6xl font-black text-white italic">11+</div>
                         </div>
-                        <div id="dice-visual" class="w-16 h-16 bg-white text-slate-900 rounded-xl mx-auto flex items-center justify-center text-2xl font-black shadow-xl">?</div>
+                        
+                        <div id="dice-container" class="relative group">
+                            <div id="dice-box" class="w-24 h-24 bg-white text-slate-900 rounded-3xl mx-auto flex items-center justify-center text-4xl font-black shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-transform">
+                                ?
+                            </div>
+                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter">W20 System</div>
+                        </div>
                     </div>
 
-                    <div id="action-area" class="mt-6 space-y-2">
-                        <!-- Buttons werden dynamisch eingefügt -->
+                    <div id="action-stack" class="w-full mt-10 space-y-3">
+                        <!-- Buttons dynamisch -->
                     </div>
                 </div>
             </div>
@@ -101,79 +185,81 @@
     </div>
 
     <script>
-        // --- SPIELKONFIGURATION ---
+        // --- DATA FROM PDF ---
         const SCENES = [
-            { t: "Die Einladung", d: "Leo lädt dich in eine exklusive Gruppe ein. Du sollst ein Video teilen, das den Circle feiert. Tust du es?" },
-            { t: "Isolation", d: "Die Gruppe verlangt, dass du deine Freunde ignorierst, die 'negativ' über den Circle reden. Brichst du den Kontakt ab?" },
-            { t: "Die Drohung", d: "Leo sagt: 'Wer jetzt aussteigt, verliert seine Chance auf Erfolg für immer.' Bleibst du dabei?" },
-            { t: "Die Demütigung", d: "In einem Meeting wirst du vor allen bloßgestellt. Gibst du zu, dass du 'noch nicht bereit' warst?" },
-            { t: "Loyalität", d: "Leo sagt: 'Wir haben so viel Zeit in dich investiert. Du schuldest uns Loyalität.' Gibst du nach?" },
-            { t: "Der Kontostand", d: "Alle posten einen Screenshot ihrer Kontostände. Du zögerst. Postest du trotzdem?" }
+            { title: "Die Einladung", text: "Leo lädt dich in eine exklusive Gruppe ein. Du sollst ein Video teilen, das den Circle feiert. Tust du es?" },
+            { title: "Isolation", text: "Die Gruppe verlangt, dass du deine Freunde ignorierst, die 'negativ' über den Circle reden. Brichst du den Kontakt ab?" },
+            { title: "Die Drohung", text: "Leo sagt: 'Wer jetzt aussteigt, verliert seine Chance auf Erfolg für immer.' Bleibst du dabei?" },
+            { title: "Die Demütigung", text: "In einem Meeting wirst du vor allen bloßgestellt. Gibst du zu, dass du 'noch nicht bereit' warst?" },
+            { title: "Loyalität", text: "Leo sagt: 'Wir haben so viel Zeit in dich investiert. Du schuldest uns Loyalität.' Gibst du nach?" },
+            { title: "Der Kontostand", text: "Alle posten einen Screenshot ihrer Kontostände. Du zögerst. Postest du trotzdem?" }
         ];
 
         const TACTICS = {
-            "EXKLUSIVITÄT": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } },
-            "VERSCHWÖRUNG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } },
-            "ANGST": { w: { f: -1, s: 0 }, l: { f: 0, s: 2 } },
-            "ERNIEDRIGUNG": { w: { f: -1, s: -1 }, l: { f: 0, s: 3 } },
-            "SCHULDGEFÜHLE": { w: { f: -1, s: -1 }, l: { f: 0, s: 2 } },
-            "GRUPPENZWANG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 } }
+            "EXKLUSIVITÄT": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 }, text: "Gelingt: -1 F | Misslingt: +1 MB" },
+            "VERSCHWÖRUNG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1, p: "INNERE ZWEIFEL" }, text: "Gelingt: -1 F | Misslingt: +1 MB & Zweifel" },
+            "ANGST": { w: { f: -1, s: 0, p: "MISSTRAUEN" }, l: { f: 0, s: 2 }, text: "Gelingt: -1 F & Misstrauen | Misslingt: +2 MB" },
+            "ERNIEDRIGUNG": { w: { f: -1, s: -1 }, l: { f: 0, s: 3 }, text: "Gelingt: -1 F, -1 MB | Misslingt: +3 MB" },
+            "SCHULDGEFÜHLE": { w: { f: -1, s: -1 }, l: { f: 0, s: 2 }, text: "Gelingt: -1 F, -1 MB | Misslingt: +2 MB" },
+            "GRUPPENZWANG": { w: { f: -1, s: 0 }, l: { f: 0, s: 1 }, text: "Gelingt: -1 F | Misslingt: +1 MB" }
         };
 
-        // --- P2P LOGIK ---
-        let peer, conn;
-        let myRole = ''; // 'leader' oder 'member'
+        const PROTECTIONS = {
+            "CIRCLE RANG": { f: 1, s: 1, desc: "+1 Freiheit / +1 Belastung" },
+            "INNERE ZWEIFEL": { f: 1, s: 0, desc: "+1 Freiheit" },
+            "MISSTRAUEN": { f: 1, s: 0, desc: "+1 Freiheit" },
+            "AUSSENKONTAKT": { f: 1, s: -1, desc: "+1 Freiheit / -1 Belastung" }
+        };
+
+        // --- ENGINE ---
+        let peer, conn, myRole;
         let state = {
             freedom: 5,
             stress: 0,
             scene: 0,
-            turn: 'member' // Wer ist gerade dran?
+            turn: 'member',
+            protections: [],
+            lastActionMsg: ""
         };
 
-        const btnHost = document.getElementById('btn-host');
-        const btnJoin = document.getElementById('btn-join');
-
-        btnHost.onclick = () => {
+        // --- P2P SETUP ---
+        document.getElementById('btn-host').onclick = () => {
             myRole = 'leader';
             peer = new Peer();
-            peer.on('open', (id) => {
+            peer.on('open', id => {
                 document.getElementById('my-id').value = id;
                 document.getElementById('host-code-area').classList.remove('hidden');
-                btnHost.classList.add('hidden');
+                document.getElementById('btn-host').classList.add('hidden');
             });
-            peer.on('connection', (c) => {
-                conn = c;
-                setupConnection();
-            });
+            peer.on('connection', c => { conn = c; initComm(); });
         };
 
-        btnJoin.onclick = () => {
+        document.getElementById('btn-join').onclick = () => {
             myRole = 'member';
             const id = document.getElementById('join-id').value;
             if (!id) return;
             peer = new Peer();
             peer.on('open', () => {
                 conn = peer.connect(id);
-                setupConnection();
+                initComm();
             });
         };
 
-        function setupConnection() {
+        function initComm() {
             conn.on('open', () => {
                 document.getElementById('setup-screen').classList.add('hidden');
                 document.getElementById('game-screen').classList.remove('hidden');
-                if (myRole === 'leader') sendState(); // Host gibt den Start-State vor
+                if (myRole === 'leader') sync();
                 updateUI();
             });
-            conn.on('data', (data) => {
+            conn.on('data', data => {
                 state = data;
+                showFeedback(state.lastActionMsg);
                 updateUI();
             });
         }
 
-        function sendState() {
-            if (conn && conn.open) conn.send(state);
-        }
+        function sync() { if (conn && conn.open) conn.send(state); }
 
         function copyId() {
             const el = document.getElementById('my-id');
@@ -181,33 +267,31 @@
             document.execCommand('copy');
         }
 
-        // --- GAME LOGIK ---
+        // --- UI CORE ---
         function updateUI() {
-            const scene = SCENES[state.scene];
-            if (!scene || state.freedom <= 0 || state.stress >= 10) {
-                renderEnd();
-                return;
-            }
+            const cur = SCENES[state.scene];
+            if (!cur || state.freedom <= 0 || state.stress >= 10) { renderEnd(); return; }
 
-            document.getElementById('narrative-text').innerText = `"${scene.d}"`;
-            document.getElementById('scene-counter').innerText = `${state.scene + 1} / 6`;
-            document.getElementById('freedom-val').innerText = `${state.freedom} / 5`;
-            document.getElementById('stress-val').innerText = `${state.stress} / 10`;
-            document.getElementById('freedom-bar').style.width = `${(state.freedom / 5) * 100}%`;
-            document.getElementById('stress-bar').style.width = `${(state.stress / 10) * 100}%`;
+            document.getElementById('scene-title').innerText = `KAPITEL ${state.scene + 1}`;
+            document.getElementById('scene-label').innerText = `0${state.scene + 1} / 06`;
+            document.getElementById('narrative-body').innerText = `"${cur.text}"`;
+            
+            document.getElementById('val-f').innerText = `${state.freedom}/5`;
+            document.getElementById('val-s').innerText = `${state.stress}/10`;
+            document.getElementById('bar-f').style.width = `${(state.freedom / 5) * 100}%`;
+            document.getElementById('bar-s').style.width = `${(state.stress / 10) * 100}%`;
 
             const isMyTurn = state.turn === myRole;
-            const badge = document.getElementById('turn-badge');
-            badge.innerText = isMyTurn ? "Dein Zug" : "Warte...";
-            badge.className = isMyTurn ? "px-4 py-1 rounded-full text-[10px] font-black uppercase bg-blue-500 text-white animate-pulse" : "px-4 py-1 rounded-full text-[10px] font-black uppercase bg-slate-800 text-slate-500";
+            const tInd = document.getElementById('turn-indicator');
+            tInd.innerText = isMyTurn ? "DEIN ZUG" : "WARTE...";
+            tInd.className = `px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all ${isMyTurn ? 'bg-blue-500 text-white animate-pulse shadow-lg shadow-blue-500/30' : 'bg-slate-800 text-slate-500'}`;
 
-            const roleIcon = document.getElementById('role-icon');
-            roleIcon.innerText = myRole === 'leader' ? 'L' : 'M';
-            roleIcon.className = `w-10 h-10 rounded-lg flex items-center justify-center font-black ${myRole === 'leader' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}`;
-            document.getElementById('player-role-text').innerText = myRole === 'leader' ? 'Anführer' : 'Mitglied';
-            document.getElementById('player-name-text').innerText = myRole === 'leader' ? 'Leo' : 'Anfänger';
+            const badge = document.getElementById('role-badge');
+            badge.innerText = myRole === 'leader' ? 'L' : 'M';
+            badge.className = `w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black shadow-inner ${myRole === 'leader' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}`;
+            document.getElementById('player-label').innerText = myRole === 'leader' ? 'ANFÜHRER (LEO)' : 'GRUPPENMITGLIED';
 
-            // Target
+            // Target Calc
             let target = 11;
             if (state.turn === 'member') {
                 target = 11 + (5 - state.freedom) * 2 + (state.stress >= 3 ? (state.stress - 2) : 0);
@@ -215,75 +299,126 @@
                 target = 11 + (state.stress >= 3 ? -(state.stress - 2) : 0) + (state.freedom > 3 ? (state.freedom - 3) : 0);
             }
             target = Math.max(2, Math.min(20, target));
-            document.getElementById('target-val').innerText = target + "+";
+            document.getElementById('target-number').innerText = target + "+";
 
-            // Buttons
-            const area = document.getElementById('action-area');
-            area.innerHTML = '';
+            // Protections
+            const pBox = document.getElementById('protection-container');
+            pBox.innerHTML = '';
+            state.protections.forEach(p => {
+                pBox.innerHTML += `<div class="bg-blue-900/40 border border-blue-400/30 px-3 py-1 rounded-full text-[9px] font-bold text-blue-300 uppercase tracking-widest shadow-sm">🛡️ ${p}</div>`;
+            });
+
+            // Action Buttons
+            const stack = document.getElementById('action-stack');
+            stack.innerHTML = '';
             if (isMyTurn) {
                 if (myRole === 'member') {
-                    area.innerHTML = `
-                        <button onclick="handleMove('obey')" class="w-full bg-slate-700 p-3 rounded-xl text-xs font-bold uppercase">Gehorchen</button>
-                        <button onclick="handleMove('resist')" class="w-full bg-blue-600 p-3 rounded-xl text-xs font-bold uppercase">Widerstehen</button>
+                    stack.innerHTML = `
+                        <button onclick="handleAction('obey')" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">Folgen (-1 Freiheit)</button>
+                        <button onclick="handleAction('resist')" class="w-full bg-blue-600 hover:bg-blue-500 p-4 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl transition-all">Widerstehen (Wurf)</button>
                     `;
                 } else {
-                    Object.keys(TACTICS).forEach(t => {
-                        area.innerHTML += `<button onclick="handleMove('tactic', '${t}')" class="w-full bg-slate-800 p-2 rounded-lg text-[9px] font-bold border border-white/5 uppercase">${t}</button>`;
+                    Object.keys(TACTICS).forEach(k => {
+                        stack.innerHTML += `
+                            <button onclick="handleAction('tactic', '${k}')" class="w-full bg-slate-800 hover:bg-blue-900 border border-white/5 p-3 rounded-xl text-left transition-all group">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-blue-400">${k}</span>
+                                    <span class="text-[8px] opacity-40 uppercase tracking-tighter">${TACTICS[k].text}</span>
+                                </div>
+                            </button>
+                        `;
                     });
                 }
             }
         }
 
-        function handleMove(type, detail) {
-            const roll = Math.floor(Math.random() * 20) + 1;
-            document.getElementById('dice-visual').innerText = roll;
-            document.getElementById('dice-visual').classList.add('animate-bounce');
+        async function handleAction(type, detail) {
+            const dice = document.getElementById('dice-box');
+            dice.classList.add('die-animation');
+            
+            // "Falsches" Rollen für 1 Sekunde
+            let counter = 0;
+            const rollInt = setInterval(() => {
+                dice.innerText = Math.floor(Math.random() * 20) + 1;
+                counter++;
+            }, 50);
 
-            let target = parseInt(document.getElementById('target-val').innerText);
-
-            setTimeout(() => {
-                document.getElementById('dice-visual').classList.remove('animate-bounce');
+            setTimeout(async () => {
+                clearInterval(rollInt);
+                const roll = Math.floor(Math.random() * 20) + 1;
+                dice.innerText = roll;
+                dice.classList.remove('die-animation');
                 
+                let target = parseInt(document.getElementById('target-number').innerText);
+                let msg = "";
+
                 if (type === 'obey') {
                     state.freedom--;
+                    if (state.scene === 0) { state.protections.push("CIRCLE RANG"); msg = "Rang erhalten!"; }
                     state.scene++;
                     state.turn = 'member';
+                    msg = "Du folgst der Gruppe. -1 Freiheit.";
                 } else if (type === 'resist') {
                     if (roll >= target) {
-                        state.turn = 'leader'; // Leo muss kontern
+                        state.turn = 'leader';
+                        msg = `Erfolg (${roll})! Leo muss nun überzeugen.`;
                     } else {
                         state.freedom--;
                         state.stress++;
+                        if (state.scene === 2) { state.protections.push("AUSSENKONTAKT"); msg += " Außenkontakt gefunden!"; }
                         state.scene++;
                         state.turn = 'member';
+                        msg = `Gescheitert (${roll}). -1 F, +1 MB.`;
                     }
                 } else if (type === 'tactic') {
                     const t = TACTICS[detail];
                     if (roll >= target) {
                         state.freedom += t.w.f;
                         state.stress += t.w.s;
+                        if (detail === 'ANGST') state.protections.push("MISSTRAUEN");
+                        if (state.scene === 0) state.protections.push("CIRCLE RANG");
+                        msg = `Leo siegt mit ${detail}!`;
                     } else {
                         state.freedom += t.l.f;
                         state.stress += t.l.s;
+                        if (t.l.p) state.protections.push(t.l.p);
+                        msg = `${detail} fehlgeschlagen.`;
                     }
                     state.scene++;
                     state.turn = 'member';
                 }
 
+                state.lastActionMsg = msg;
                 state.freedom = Math.max(0, state.freedom);
                 state.stress = Math.min(10, Math.max(0, state.stress));
                 
-                sendState();
+                showFeedback(msg);
+                sync();
                 updateUI();
-            }, 600);
+            }, 1000);
+        }
+
+        function showFeedback(msg) {
+            if (!msg) return;
+            const ov = document.getElementById('feedback-overlay');
+            const txt = document.getElementById('feedback-text');
+            txt.innerText = msg;
+            ov.style.opacity = "1";
+            setTimeout(() => { ov.style.opacity = "0"; }, 2000);
         }
 
         function renderEnd() {
             document.getElementById('game-screen').innerHTML = `
-                <div class="glass p-12 rounded-[3rem] text-center space-y-6">
-                    <h2 class="text-4xl font-black italic text-blue-500 uppercase">Spiel Beendet</h2>
-                    <p class="text-slate-400">Das Experiment ist abgeschlossen. Ergebnis synchronisiert.</p>
-                    <button onclick="location.reload()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold uppercase">Neustart</button>
+                <div class="glass p-20 rounded-[4rem] text-center space-y-8 shadow-2xl card-enter">
+                    <h2 class="heading text-5xl font-black italic text-blue-500 uppercase tracking-tighter">Experiment Ende</h2>
+                    <p class="text-slate-400 text-lg">
+                        ${state.freedom <= 0 ? "Das Mitglied ist nun vollends Teil des Circles. Die Freiheit ist erloschen." : "Die psychische Belastung wurde zu groß. Das Mitglied bricht zusammen."}
+                    </p>
+                    <div class="p-6 bg-black/40 rounded-2xl border border-white/5 inline-block text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                        Finaler Status: ${state.freedom} F | ${state.stress} MB
+                    </div>
+                    <br>
+                    <button onclick="location.reload()" class="bg-white text-slate-900 px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all">Neuer Versuch</button>
                 </div>
             `;
         }
